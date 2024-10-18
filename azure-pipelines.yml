@@ -1,27 +1,45 @@
-# Maven
-# Build your Java project and run tests with Apache Maven.
-# Add steps that analyze code, save build artifacts, deploy, and more:
-# https://docs.microsoft.com/azure/devops/pipelines/languages/java
-
 trigger:
-- master
+  - master  # Trigger the pipeline on the 'main' branch (you can change this to 'master' or any branch you want)
 
-pool: 88
+pool:
+  name: '88'  # Name of your self-hosted agent pool
 
+jobs:
+  - job: Build
+    displayName: 'Build Java Project on Self-Hosted Agent'
 
-steps:
-- task: Maven@3
-  inputs:
-    mavenPomFile: 'pom.xml'
-    mavenOptions: '-Xmx3072m'
-    javaHomeOption: 'JDKVersion'
-    jdkVersionOption: '1.11'
-    jdkArchitectureOption: 'x64'
-    publishJUnitResults: true
-    testResultsFiles: '**/surefire-reports/TEST-*.xml'
-    goals: 'package'
-- task: JavaToolInstaller@0
-  inputs:
-    versionSpec: '8'
-    jdkArchitectureOption: 'x64'
-    jdkSourceOption: 'PreInstalled'
+    steps:
+      # Step 1: Install Java (if not already installed on the self-hosted agent)
+      - task: JavaToolInstaller@0
+        inputs:
+          versionSpec: '11'  # Specify the Java version you need (e.g., 8, 11, 17)
+          jdkArchitectureOption: 'x64'
+
+      # Step 2: Install Maven (if Maven is not pre-installed on the self-hosted agent)
+      - task: Maven@3
+        inputs:
+          mavenVersionOption: 'Default'  # Use the default Maven version or specify a version
+          mavenPomFile: 'pom.xml'  # Path to your pom.xml file
+          goals: 'clean install'  # Maven goal to install dependencies and build the project
+          javaHomeOption: 'JDKVersion'
+          jdkVersionOption: '1.11'  # Make sure the Java version matches the Java version installed
+          jdkArchitectureOption: 'x64'
+
+      # Step 3: Run Maven Build
+      - script: |
+          mvn clean install
+        displayName: 'Maven Build'
+
+      # Step 4: Publish JUnit Test Results (optional, if your project runs tests)
+      - task: PublishTestResults@2
+        inputs:
+          testResultsFiles: '**/target/surefire-reports/TEST-*.xml'
+          testResultsFormat: 'JUnit'
+        displayName: 'Publish JUnit Test Results'
+
+      # Step 5: Publish Build Artifacts
+      - task: PublishBuildArtifacts@1
+        inputs:
+          pathToPublish: '$(System.DefaultWorkingDirectory)/target'
+          artifactName: 'maven-artifacts'
+        displayName: 'Publish Build Artifacts'
